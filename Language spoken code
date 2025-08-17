@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multilingual Talking Chatbot</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for a modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles for the app */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for the chat container */
+        #chat-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background: #f1f5f9; /* cool-gray-100 */
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background-color: #94a3b8; /* cool-gray-400 */
+            border-radius: 20px;
+            border: 3px solid #f1f5f9;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+
+    <div class="w-full max-w-2xl mx-4 sm:mx-auto bg-white rounded-2xl shadow-2xl flex flex-col h-[95vh] sm:h-[90vh]">
+        <!-- Header Section -->
+        <header class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-2xl">
+            <h1 class="text-xl font-bold text-gray-800">Talking Chatbot</h1>
+            <div class="flex items-center space-x-2">
+                <label for="language-select" class="text-sm font-medium text-gray-600">Voice:</label>
+                <select id="language-select" class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5">
+                    <!-- Voice options will be populated by JavaScript -->
+                    <option>Loading voices...</option>
+                </select>
+            </div>
+        </header>
+
+        <!-- Chat Messages Display -->
+        <main id="chat-container" class="flex-1 p-6 overflow-y-auto space-y-6">
+            <!-- Chat messages will be appended here -->
+        </main>
+
+        <!-- User Input Area -->
+        <footer class="p-4 border-t border-gray-200 flex items-center space-x-3 bg-gray-50 rounded-b-2xl">
+            <input type="text" id="user-input" placeholder="Type your message..." class="flex-1 p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+            <button id="send-btn" class="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+            </button>
+        </footer>
+    </div>
+
+    <script>
+        // DOM element references
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const languageSelect = document.getElementById('language-select');
+
+        // Store available speech synthesis voices
+        let voices = [];
+
+        // Simple key-value pairs for chatbot responses
+        const responses = {
+            "hello": "Hi there! How can I help you today?",
+            "hi": "Hello! What can I do for you?",
+            "how are you": "I'm just a bot, but I'm doing great! Thanks for asking.",
+            "what is your name": "I am a simple talking chatbot created to assist you.",
+            "bye": "Goodbye! Have a great day.",
+            "help": "You can ask me simple questions like 'hello', 'how are you', or 'what is your name'.",
+            "default": "Sorry, I didn't understand that. Could you please rephrase?"
+        };
+
+        /**
+         * Populates the language/voice selection dropdown.
+         * This function is called when the browser has loaded the available voices.
+         */
+        function populateVoices() {
+            voices = speechSynthesis.getVoices();
+            languageSelect.innerHTML = ''; // Clear existing options
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.setAttribute('data-lang', voice.lang);
+                option.setAttribute('data-name', voice.name);
+                option.value = index;
+                languageSelect.appendChild(option);
+            });
+             // Set a default friendly voice if available
+            const defaultVoice = voices.findIndex(voice => voice.name.includes('Google US English') || voice.name.includes('Samantha'));
+            if (defaultVoice > -1) {
+                languageSelect.selectedIndex = defaultVoice;
+            }
+        }
+
+        /**
+         * Converts a string of text to speech using the selected voice.
+         * @param {string} text - The text to be spoken.
+         */
+        function speak(text) {
+            // Cancel any ongoing speech to prevent overlap
+            if (speechSynthesis.speaking) {
+                speechSynthesis.cancel();
+            }
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            const selectedVoiceIndex = languageSelect.value;
+            utterance.voice = voices[selectedVoiceIndex];
+            utterance.pitch = 1;
+            utterance.rate = 1;
+            speechSynthesis.speak(utterance);
+        }
+
+        /**
+         * Adds a message to the chat container.
+         * @param {string} text - The message content.
+         * @param {string} sender - Who sent the message ('user' or 'bot').
+         */
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            const bubbleDiv = document.createElement('div');
+            
+            messageDiv.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            bubbleDiv.className = `max-w-xs md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl ${sender === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-800'}`;
+            
+            bubbleDiv.textContent = text;
+            messageDiv.appendChild(bubbleDiv);
+            chatContainer.appendChild(messageDiv);
+            
+            // Automatically scroll to the latest message
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        /**
+         * Gets a response from the chatbot based on user input.
+         * @param {string} input - The user's message.
+         * @returns {string} The bot's response.
+         */
+        function getBotResponse(input) {
+            const lowerInput = input.toLowerCase().trim();
+            // Find a matching response, otherwise use the default
+            return responses[lowerInput] || responses['default'];
+        }
+
+        /**
+         * Handles the entire process of user sending a message.
+         */
+        function handleUserInput() {
+            const message = userInput.value;
+            if (message.trim() === '') return;
+
+            addMessage(message, 'user');
+            userInput.value = ''; // Clear the input field
+
+            // Simulate bot thinking time for a more natural feel
+            setTimeout(() => {
+                const botResponse = getBotResponse(message);
+                addMessage(botResponse, 'bot');
+                speak(botResponse);
+            }, 500);
+        }
+
+        // --- Event Listeners ---
+
+        // Populate voices when they are loaded by the browser
+        speechSynthesis.onvoiceschanged = populateVoices;
+
+        // Handle sending message on button click
+        sendBtn.addEventListener('click', handleUserInput);
+
+        // Handle sending message on pressing 'Enter' key
+        userInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                handleUserInput();
+            }
+        });
+        
+        // --- Initial Setup ---
+        
+        // Add a welcome message when the page loads
+        window.addEventListener('load', () => {
+             // The 'voiceschanged' event is sometimes slow, so we try to populate voices early
+            if (speechSynthesis.getVoices().length > 0) {
+                 populateVoices();
+            }
+            const welcomeMessage = "Hello! I'm your talking assistant. Select a voice and send me a message.";
+            setTimeout(() => {
+                addMessage(welcomeMessage, 'bot');
+                // We need to wait a bit for voices to be ready before speaking
+                setTimeout(() => speak(welcomeMessage), 500);
+            }, 500);
+        });
+
+    </script>
+</body>
+</html>
